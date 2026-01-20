@@ -65,12 +65,12 @@ def find_column_for_number(df, col_number):
 
 
 def parse_wells(cell):
-    """Return a list of normalized wells (e.g. 'A1') from a cell value.
+    """Return a list of normalized wells ('A1') from a cell value.
     Accepts comma/semicolon separated strings, lists, numbers, or NaN.
     """
     if pd.isna(cell):
         return []
-    # ensure we operate on a plain string (remove surrounding quotes if present)
+    # ensure a plain string (remove surrounding quotes if present)
     if isinstance(cell, (list, tuple)):
         items = cell
     else:
@@ -102,11 +102,11 @@ if txt_file.exists():
     try:
         raw_df = pd.read_csv(txt_file, sep='\t', header=0, dtype=str)
     except Exception as e:
-        print(f"❌ Failed to read Raw_files.txt: {e}")
+        print(f" Failed to read Raw_files.txt: {e}")
         sys.exit(1)
 else:
     if not os.path.exists(excel_file):
-        print(f"❌ Excel file not found at {excel_file} and no Raw_files.txt present. Put Raw_files.txt or Raw_files.xlsx in {workdir}")
+        print(f" Excel file not found at {excel_file} and no Raw_files.txt present. Put Raw_files.txt or Raw_files.xlsx in {workdir}")
         sys.exit(1)
     # Try reading the excel; header row can vary. First try header=2, else header=0
     try:
@@ -115,10 +115,10 @@ else:
         if "Plate" not in raw_df.columns:
             raw_df = pd.read_excel(excel_file, header=0, dtype=str)
     except Exception as e:
-        print(f"❌ Failed to read Excel file: {e}")
+        print(f" Failed to read Excel file: {e}")
         sys.exit(1)
 
-# Normalize columns: ensure columns like '30','60','90','120' exist where possible
+# Normalize columns: ensure columns like '30','60','90','120' exist
 cols_lower = [str(c).lower() for c in raw_df.columns]
 needed = {"30": None, "60": None, "90": None, "120": None}
 for name in raw_df.columns:
@@ -160,7 +160,7 @@ for file in os.listdir(workdir):
     if file.lower().endswith('_clean.csv'):
         continue
 
-    # match cutoff by filename suffix (common patterns: _30.csv, _60.csv, _90.csv, _120.csv)
+    # match cutoff by filename suffix (_30.csv, _60.csv, _90.csv, _120.csv)
     m = re.search(r"_(30|60|90|120)\.csv$", file, re.IGNORECASE)
     if not m:
         skipped += 1
@@ -178,21 +178,21 @@ for file in os.listdir(workdir):
             break
     
     if not found_match:
-        print(f"⚠️ No matching plate-cutoff combination in Excel for '{file}', skipping")
+        print(f" No matching plate-cutoff combination in Excel for '{file}', skipping")
         skipped += 1
         continue
 
     # Get the row from Excel
     row = raw_df.loc[raw_df["Plate"].str.strip() == plate_id]
     if row.empty:
-        print(f"⚠️ No entry for plate '{plate_id}' in Excel, skipping {file}")
+        print(f" No entry for plate '{plate_id}' in Excel, skipping {file}")
         skipped += 1
         continue
 
     saturated_cell = row.iloc[0].get(cutoff_col)
     wells = parse_wells(saturated_cell)
     if not wells:
-        print(f"ℹ️ No saturated wells for plate '{plate_id}' at cutoff {cutoff}, skipping {file}.")
+        print(f" No saturated wells for plate '{plate_id}' at cutoff {cutoff}, skipping {file}.")
         skipped += 1
         continue
 
@@ -202,7 +202,7 @@ for file in os.listdir(workdir):
     try:
         df = pd.read_csv(csv_path, dtype=object)
     except Exception as e:
-        print(f"❌ Failed to read {file}: {e}")
+        print(f" Failed to read {file}: {e}")
         skipped += 1
         continue
 
@@ -211,7 +211,7 @@ for file in os.listdir(workdir):
 
     row_col = find_row_column(df)
     if not row_col:
-        print(f"⚠️ Could not find row-label column in {file}. Common names: 'Batch' or 'Row'. Skipping.")
+        print(f" Could not find row-label column in {file}. Common names: 'Batch' or 'Row'. Skipping.")
         skipped += 1
         continue
 
@@ -223,7 +223,7 @@ for file in os.listdir(workdir):
             continue
         m2 = re.match(r"^([A-Z])([0-9]+)$", well)
         if not m2:
-            print(f"⚠️ Unrecognized well format '{well}' in {file}; expected like 'A1'. Skipping that entry.")
+            print(f" Unrecognized well format '{well}' in {file}; expected like 'A1'. Skipping that entry.")
             continue
         row_letter = m2.group(1)
         col_number = m2.group(2)
@@ -231,11 +231,11 @@ for file in os.listdir(workdir):
         if col_name:
             col_indices_found.append((well, row_letter, col_name))
         else:
-            print(f"⚠️ Could not find column for well {well} (looking for column {col_number})")
+            print(f" Could not find column for well {well} (looking for column {col_number})")
             col_indices_missing.append(well)
 
     if not col_indices_found:
-        print(f"⚠️ No columns found for any wells in {file}, skipping")
+        print(f" No columns found for any wells in {file}, skipping")
         skipped += 1
         continue
 
@@ -244,19 +244,20 @@ for file in os.listdir(workdir):
     for well, row_letter, col_name in col_indices_found:
         row_mask = df[row_col].str.strip().str.upper() == row_letter
         if not any(row_mask):
-            print(f"⚠️ Could not find any rows with letter '{row_letter}' in column '{row_col}'")
+            print(f" Could not find any rows with letter '{row_letter}' in column '{row_col}'")
             continue
         df.loc[row_mask, col_name] = None
         changed_any = True
 
     if not changed_any:
-        print(f"⚠️ No changes made to {file}, skipping output")
+        print(f" No changes made to {file}, skipping output")
         skipped += 1
         continue
 
     output_file = output_dir / file.replace(".csv", "_clean.csv")
     df.to_csv(output_file, index=False)
     processed += 1
-    print(f"✅ Saved cleaned data to {output_file}")
+    print(f" Saved cleaned data to {output_file}")
 
-print(f"\n🎉 Done! Processed {processed} files, skipped {skipped} files.")
+
+print(f"\n Done! Processed {processed} files, skipped {skipped} files.")
